@@ -1,11 +1,13 @@
 package go_queue
 
 import (
+	"github.com/google/uuid"
 	"github.com/owles/go-queue/contract"
 	"time"
 )
 
 type Payload struct {
+	uuid   string
 	driver contract.Driver
 
 	signature string
@@ -17,6 +19,7 @@ type Payload struct {
 
 func NewPayload(driver contract.Driver, signature string, availableAt time.Time, args []contract.Arg) *Payload {
 	return &Payload{
+		uuid:   uuid.New().String(),
 		driver: driver,
 
 		signature: signature,
@@ -25,6 +28,10 @@ func NewPayload(driver contract.Driver, signature string, availableAt time.Time,
 		attempts:    0,
 		availableAt: availableAt,
 	}
+}
+
+func (receiver *Payload) Uuid() string {
+	return receiver.uuid
 }
 
 func (receiver *Payload) Fire() {

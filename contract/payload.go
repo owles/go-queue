@@ -5,6 +5,7 @@ import (
 )
 
 type Payload interface {
+	Uuid() string
 	Fire()
 	Release(delay *time.Duration)
 	Delete()
