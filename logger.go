@@ -1,4 +1,4 @@
-package queue
+package go_queue
 
 type EmptyLogger struct{}
 

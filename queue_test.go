@@ -1,8 +1,8 @@
-package queue
+package go_queue
 
 import (
 	"context"
-	"github.com/owles/go-weby/contracts/queue"
+	"github.com/owles/go-queue/contract"
 	"log/slog"
 	"sync"
 	"testing"
@@ -47,7 +47,7 @@ func TestSync(t *testing.T) {
 	conns.Add("default", &Connection{Driver: DriverSync})
 
 	q := NewQueue(conns, nil, false)
-	err := q.Job(&TestSyncJob{}, []queue.Arg{
+	err := q.Job(&TestSyncJob{}, []contract.Arg{
 		{Type: "string", Value: "TestSyncQueue"},
 		{Type: "int", Value: 1},
 	}).Dispatch()
@@ -70,13 +70,13 @@ func TestAsyncQueue(t *testing.T) {
 		Password: "",
 	}})
 
-	q := NewQueue(conns, slog.Default(), true)
-	q.Register([]queue.Job{
+	q := NewQueue(conns, slog.Default(), false)
+	q.Register([]contract.Job{
 		&TestAsyncJob{},
 	})
 
 	go func(ctx context.Context) {
-		err := q.Worker(queue.Args{
+		err := q.Worker(contract.Args{
 			Connection: "redis",
 			Queue:      "custom",
 			Concurrent: 2,
@@ -91,12 +91,12 @@ func TestAsyncQueue(t *testing.T) {
 		}
 	}(ctx)
 
-	q.Job(&TestAsyncJob{}, []queue.Arg{
+	q.Job(&TestAsyncJob{}, []contract.Arg{
 		{Type: "string", Value: "TestAsyncQueue"},
 		{Type: "int", Value: 1},
 	}).OnConnection("redis").OnQueue("custom").Dispatch()
 
-	q.Job(&TestAsyncJob{}, []queue.Arg{
+	q.Job(&TestAsyncJob{}, []contract.Arg{
 		{Type: "string", Value: "TestAsyncQueue"},
 		{Type: "int", Value: 2},
 	}).OnConnection("redis").OnQueue("custom").Dispatch()
@@ -122,12 +122,12 @@ func TestChainQueue(t *testing.T) {
 	}})
 
 	q := NewQueue(conns, slog.Default(), false)
-	q.Register([]queue.Job{
+	q.Register([]contract.Job{
 		&TestAsyncJob{},
 	})
 
 	go func(ctx context.Context) {
-		err := q.Worker(queue.Args{
+		err := q.Worker(contract.Args{
 			Connection: "redis",
 			Queue:      "custom",
 			Concurrent: 2,
@@ -142,17 +142,17 @@ func TestChainQueue(t *testing.T) {
 		}
 	}(ctx)
 
-	q.Chain([]queue.Jobs{
+	q.Chain([]contract.Jobs{
 		{
 			Job: &TestAsyncJob{},
-			Args: []queue.Arg{
+			Args: []contract.Arg{
 				{Type: "string", Value: "TestChainAsyncQueue"},
 				{Type: "int", Value: 1},
 			},
 		},
 		{
 			Job: &TestAsyncJob{},
-			Args: []queue.Arg{
+			Args: []contract.Arg{
 				{Type: "string", Value: "TestChainAsyncQueue"},
 				{Type: "int", Value: 2},
 			},

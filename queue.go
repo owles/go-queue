@@ -1,14 +1,14 @@
-package queue
+package go_queue
 
 import (
 	mlog "github.com/RichardKnop/machinery/v2/log"
-	"github.com/owles/go-weby/contracts/queue"
+	"github.com/owles/go-queue/contract"
 	"log/slog"
 )
 
 type Queue struct {
 	connections *Connections
-	jobs        []queue.Job
+	jobs        []contract.Job
 	log         *slog.Logger
 }
 
@@ -23,7 +23,7 @@ func NewQueue(connections *Connections, log *slog.Logger, debug bool) *Queue {
 	}
 }
 
-func (q *Queue) Worker(args ...queue.Args) queue.Worker {
+func (q *Queue) Worker(args ...contract.Args) contract.Worker {
 	defaultConnection := q.connections.GetDefault()
 
 	if len(args) == 0 {
@@ -37,18 +37,18 @@ func (q *Queue) Worker(args ...queue.Args) queue.Worker {
 	return NewWorker(q.connections, q.log, args[0].Concurrent, args[0].Connection, q.jobs, args[0].Queue)
 }
 
-func (q *Queue) Register(jobs []queue.Job) {
+func (q *Queue) Register(jobs []contract.Job) {
 	q.jobs = append(q.jobs, jobs...)
 }
 
-func (q *Queue) GetJobs() []queue.Job {
+func (q *Queue) GetJobs() []contract.Job {
 	return q.jobs
 }
 
-func (q *Queue) Job(job queue.Job, args []queue.Arg) queue.Task {
+func (q *Queue) Job(job contract.Job, args []contract.Arg) contract.Task {
 	return NewTask(q.connections, q.log, job, args)
 }
 
-func (q *Queue) Chain(jobs []queue.Jobs) queue.Task {
+func (q *Queue) Chain(jobs []contract.Jobs) contract.Task {
 	return NewChainTask(q.connections, q.log, jobs)
 }

@@ -1,7 +1,7 @@
-package queue
+package go_queue
 
 import (
-	"github.com/owles/go-weby/contracts/queue"
+	"github.com/owles/go-queue/contract"
 	"log/slog"
 )
 
@@ -9,11 +9,11 @@ type Worker struct {
 	concurrent int
 	connection string
 	machinery  *Machinery
-	jobs       []queue.Job
+	jobs       []contract.Job
 	queue      string
 }
 
-func NewWorker(connections *Connections, log *slog.Logger, concurrent int, connection string, jobs []queue.Job, queue string) *Worker {
+func NewWorker(connections *Connections, log *slog.Logger, concurrent int, connection string, jobs []contract.Job, queue string) *Worker {
 	return &Worker{
 		concurrent: concurrent,
 		connection: connection,

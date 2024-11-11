@@ -1,13 +1,12 @@
-package queue
+package go_queue
 
 import (
 	"fmt"
+	"github.com/RichardKnop/machinery/v2"
+	"github.com/owles/go-queue/contract"
 	"log/slog"
 	"time"
 
-	"github.com/owles/go-weby/contracts/queue"
-
-	"github.com/RichardKnop/machinery/v2"
 	"github.com/RichardKnop/machinery/v2/tasks"
 )
 
@@ -17,17 +16,17 @@ type Task struct {
 	chain       bool
 	delay       *time.Time
 	machinery   *Machinery
-	jobs        []queue.Jobs
+	jobs        []contract.Jobs
 	queue       string
 	server      *machinery.Server
 }
 
-func NewTask(connections *Connections, log *slog.Logger, job queue.Job, args []queue.Arg) *Task {
+func NewTask(connections *Connections, log *slog.Logger, job contract.Job, args []contract.Arg) *Task {
 	return &Task{
 		connections: connections,
 		connection:  connections.GetDefault(),
 		machinery:   NewMachinery(connections, log),
-		jobs: []queue.Jobs{
+		jobs: []contract.Jobs{
 			{
 				Job:  job,
 				Args: args,
@@ -36,7 +35,7 @@ func NewTask(connections *Connections, log *slog.Logger, job queue.Job, args []q
 	}
 }
 
-func NewChainTask(connections *Connections, log *slog.Logger, jobs []queue.Jobs) *Task {
+func NewChainTask(connections *Connections, log *slog.Logger, jobs []contract.Jobs) *Task {
 	return &Task{
 		connections: connections,
 		connection:  connections.GetDefault(),
@@ -46,7 +45,7 @@ func NewChainTask(connections *Connections, log *slog.Logger, jobs []queue.Jobs)
 	}
 }
 
-func (receiver *Task) Delay(delay time.Time) queue.Task {
+func (receiver *Task) Delay(delay time.Time) contract.Task {
 	receiver.delay = &delay
 
 	return receiver
@@ -94,19 +93,19 @@ func (receiver *Task) DispatchSync() error {
 	}
 }
 
-func (receiver *Task) OnConnection(connection string) queue.Task {
+func (receiver *Task) OnConnection(connection string) contract.Task {
 	receiver.connection = connection
 
 	return receiver
 }
 
-func (receiver *Task) OnQueue(queue string) queue.Task {
+func (receiver *Task) OnQueue(queue string) contract.Task {
 	receiver.queue = queue
 
 	return receiver
 }
 
-func (receiver *Task) handleChain(jobs []queue.Jobs) error {
+func (receiver *Task) handleChain(jobs []contract.Jobs) error {
 	var signatures []*tasks.Signature
 	for _, job := range jobs {
 		var realArgs []tasks.Arg
@@ -134,7 +133,7 @@ func (receiver *Task) handleChain(jobs []queue.Jobs) error {
 	return err
 }
 
-func (receiver *Task) handleAsync(job queue.Job, args []queue.Arg) error {
+func (receiver *Task) handleAsync(job contract.Job, args []contract.Arg) error {
 	var realArgs []tasks.Arg
 	for _, arg := range args {
 		realArgs = append(realArgs, tasks.Arg{
@@ -155,7 +154,7 @@ func (receiver *Task) handleAsync(job queue.Job, args []queue.Arg) error {
 	return nil
 }
 
-func (receiver *Task) handleSync(job queue.Job, args []queue.Arg) error {
+func (receiver *Task) handleSync(job contract.Job, args []contract.Arg) error {
 	var realArgs []any
 	for _, arg := range args {
 		realArgs = append(realArgs, arg.Value)

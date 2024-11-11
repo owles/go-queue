@@ -1,11 +1,11 @@
-package queue
+package go_queue
 
 import (
 	"fmt"
-	"github.com/owles/go-weby/contracts/queue"
+	"github.com/owles/go-queue/contract"
 )
 
-func jobs2Tasks(jobs []queue.Job) (map[string]any, error) {
+func jobs2Tasks(jobs []contract.Job) (map[string]any, error) {
 	tasks := make(map[string]any)
 
 	for _, job := range jobs {
