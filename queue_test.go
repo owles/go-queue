@@ -1,37 +1,167 @@
-package go_queue
+package queue
 
 import (
-	"github.com/owles/go-queue/contract"
-	"github.com/owles/go-queue/driver/synced"
+	"context"
+	"github.com/owles/go-weby/contracts/queue"
+	"log/slog"
+	"sync"
 	"testing"
 	"time"
 )
 
-// TestTask - Payload for test cases
-type TestTask struct{}
+var testSyncJob = 0
+var testAsyncJob = 0
+var mu sync.Mutex
 
-func (receiver *TestTask) Signature() string {
-	return "test_task"
+type TestSyncJob struct {
 }
 
-func (receiver *TestTask) Frequency() *time.Duration {
+func (receiver *TestSyncJob) Signature() string {
+	return "test_sync_job"
+}
+
+func (receiver *TestSyncJob) Handle(args ...any) error {
+	testSyncJob++
+
 	return nil
 }
 
-func (receiver *TestTask) Handle(args []contract.Arg) error {
+type TestAsyncJob struct {
+}
+
+func (receiver *TestAsyncJob) Signature() string {
+	return "test_async_job"
+}
+
+func (receiver *TestAsyncJob) Handle(args ...any) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	testAsyncJob++
+
 	return nil
 }
 
-func TestQueue_Register(t *testing.T) {
-	q := NewQueue(synced.NewDriver())
-	q.Register(&TestTask{})
+func TestSync(t *testing.T) {
+	conns := NewConnections()
+	conns.Add("default", &Connection{Driver: DriverSync})
 
-	if !q.Exist("test_task") {
+	q := NewQueue(conns, nil, false)
+	err := q.Job(&TestSyncJob{}, []queue.Arg{
+		{Type: "string", Value: "TestSyncQueue"},
+		{Type: "int", Value: 1},
+	}).Dispatch()
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestAsyncQueue(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conns := NewConnections()
+	conns.Add("default", &Connection{Driver: DriverSync})
+	conns.Add("redis", &Connection{Driver: DriverRedis, Redis: &RedisConfig{
+		Database: 1,
+		Host:     "127.0.0.1",
+		Port:     "6379",
+		Password: "",
+	}})
+
+	q := NewQueue(conns, slog.Default(), true)
+	q.Register([]queue.Job{
+		&TestAsyncJob{},
+	})
+
+	go func(ctx context.Context) {
+		err := q.Worker(queue.Args{
+			Connection: "redis",
+			Queue:      "custom",
+			Concurrent: 2,
+		}).Run()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		for range ctx.Done() {
+			return
+		}
+	}(ctx)
+
+	q.Job(&TestAsyncJob{}, []queue.Arg{
+		{Type: "string", Value: "TestAsyncQueue"},
+		{Type: "int", Value: 1},
+	}).OnConnection("redis").OnQueue("custom").Dispatch()
+
+	q.Job(&TestAsyncJob{}, []queue.Arg{
+		{Type: "string", Value: "TestAsyncQueue"},
+		{Type: "int", Value: 2},
+	}).OnConnection("redis").OnQueue("custom").Dispatch()
+
+	time.Sleep(2 * time.Second)
+
+	if testAsyncJob != 2 {
 		t.Fail()
 	}
+}
 
-	err := q.Job(&TestTask{}, nil).Dispatch()
-	if err != nil {
+func TestChainQueue(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conns := NewConnections()
+	conns.Add("default", &Connection{Driver: DriverSync})
+	conns.Add("redis", &Connection{Driver: DriverRedis, Redis: &RedisConfig{
+		Database: 1,
+		Host:     "127.0.0.1",
+		Port:     "6379",
+		Password: "",
+	}})
+
+	q := NewQueue(conns, slog.Default(), false)
+	q.Register([]queue.Job{
+		&TestAsyncJob{},
+	})
+
+	go func(ctx context.Context) {
+		err := q.Worker(queue.Args{
+			Connection: "redis",
+			Queue:      "custom",
+			Concurrent: 2,
+		}).Run()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		for range ctx.Done() {
+			return
+		}
+	}(ctx)
+
+	q.Chain([]queue.Jobs{
+		{
+			Job: &TestAsyncJob{},
+			Args: []queue.Arg{
+				{Type: "string", Value: "TestChainAsyncQueue"},
+				{Type: "int", Value: 1},
+			},
+		},
+		{
+			Job: &TestAsyncJob{},
+			Args: []queue.Arg{
+				{Type: "string", Value: "TestChainAsyncQueue"},
+				{Type: "int", Value: 2},
+			},
+		},
+	}).OnConnection("redis").OnQueue("custom").Dispatch()
+
+	time.Sleep(2 * time.Second)
+
+	if testAsyncJob != 2 {
 		t.Fail()
 	}
 }

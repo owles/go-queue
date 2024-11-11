@@ -1,58 +1,54 @@
-package go_queue
+package queue
 
 import (
-	"github.com/owles/go-queue/contract"
-	"sync"
+	mlog "github.com/RichardKnop/machinery/v2/log"
+	"github.com/owles/go-weby/contracts/queue"
+	"log/slog"
 )
 
 type Queue struct {
-	driver contract.Driver
-	jobs   sync.Map
+	connections *Connections
+	jobs        []queue.Job
+	log         *slog.Logger
 }
 
-func NewQueue(driver contract.Driver) *Queue {
+func NewQueue(connections *Connections, log *slog.Logger, debug bool) *Queue {
+	if !debug {
+		mlog.SetDebug(&EmptyLogger{})
+	}
+
 	return &Queue{
-		driver: driver,
+		connections: connections,
+		log:         log,
 	}
 }
 
-// Exist - check Payload Signature in the Queue Jobs
-func (receiver *Queue) Exist(signature string) bool {
-	_, ok := receiver.jobs.Load(signature)
-	return ok
-}
-
-// Register - Add Payload Struct in the Queue
-func (receiver *Queue) Register(task contract.Job) {
-	receiver.jobs.LoadOrStore(task.Signature(), task)
-}
-
-func (receiver *Queue) Job(job contract.Job, args []contract.Arg) contract.Task {
-	return NewTask(
-		receiver.driver,
-		job,
-		args,
-	)
-}
-
-func (receiver *Queue) Worker(args ...contract.Args) contract.Worker {
-	driver := receiver.driver
+func (q *Queue) Worker(args ...queue.Args) queue.Worker {
+	defaultConnection := q.connections.GetDefault()
 
 	if len(args) == 0 {
-		return NewWorker(
-			driver,
-			"default",
-			1,
-		)
+		return NewWorker(q.connections, q.log, 1, defaultConnection, q.jobs, "default")
 	}
 
-	if args[0].Driver != nil {
-		driver = args[0].Driver
+	if args[0].Connection == "" {
+		args[0].Connection = defaultConnection
 	}
 
-	return NewWorker(
-		driver,
-		args[0].Queue,
-		args[0].Concurrent,
-	)
+	return NewWorker(q.connections, q.log, args[0].Concurrent, args[0].Connection, q.jobs, args[0].Queue)
+}
+
+func (q *Queue) Register(jobs []queue.Job) {
+	q.jobs = append(q.jobs, jobs...)
+}
+
+func (q *Queue) GetJobs() []queue.Job {
+	return q.jobs
+}
+
+func (q *Queue) Job(job queue.Job, args []queue.Arg) queue.Task {
+	return NewTask(q.connections, q.log, job, args)
+}
+
+func (q *Queue) Chain(jobs []queue.Jobs) queue.Task {
+	return NewChainTask(q.connections, q.log, jobs)
 }

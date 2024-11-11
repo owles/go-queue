@@ -1,62 +1,55 @@
-package go_queue
+package queue
 
 import (
-	"errors"
-	"github.com/owles/go-queue/contract"
-	"sync"
-	"time"
+	"github.com/owles/go-weby/contracts/queue"
+	"log/slog"
 )
 
 type Worker struct {
-	driver     contract.Driver
-	queue      string
 	concurrent int
+	connection string
+	machinery  *Machinery
+	jobs       []queue.Job
+	queue      string
 }
 
-func NewWorker(driver contract.Driver, queue string, concurrent int) *Worker {
+func NewWorker(connections *Connections, log *slog.Logger, concurrent int, connection string, jobs []queue.Job, queue string) *Worker {
 	return &Worker{
-		driver:     driver,
-		queue:      queue,
 		concurrent: concurrent,
+		connection: connection,
+		machinery:  NewMachinery(connections, log),
+		jobs:       jobs,
+		queue:      queue,
 	}
 }
 
-func (w *Worker) Run() error {
-	if w.concurrent <= 0 {
-		return errors.New("invalid number of concurrent workers")
+func (receiver *Worker) Run() error {
+	server, err := receiver.machinery.Server(receiver.connection, receiver.queue)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		return nil
 	}
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, w.concurrent)
-
-	for i := 0; i < w.concurrent; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				payload, err := w.driver.Pop(w.queue)
-				if err != nil {
-					errChan <- err
-					return
-				}
-
-				if payload != nil {
-					payload.Fire()
-				}
-
-				time.Sleep(time.Millisecond)
-			}
-		}()
+	jobTasks, err := jobs2Tasks(receiver.jobs)
+	if err != nil {
+		return err
 	}
 
-	wg.Wait()
-	close(errChan)
+	if err := server.RegisterTasks(jobTasks); err != nil {
+		return err
+	}
 
-	// Collect any errors that might have occurred during processing
-	for err := range errChan {
-		if err != nil {
-			return err
-		}
+	if receiver.queue == "" {
+		receiver.queue = server.GetConfig().DefaultQueue
+	}
+	if receiver.concurrent == 0 {
+		receiver.concurrent = 1
+	}
+	worker := server.NewWorker(receiver.queue, receiver.concurrent)
+	if err := worker.Launch(); err != nil {
+		return err
 	}
 
 	return nil
