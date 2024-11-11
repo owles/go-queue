@@ -1,6 +1,7 @@
 package go_queue
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/owles/go-queue/contract"
 	"time"
@@ -35,6 +36,7 @@ func (receiver *Payload) Uuid() string {
 }
 
 func (receiver *Payload) Fire() {
+	fmt.Println("Fire!")
 }
 
 func (receiver *Payload) Release(delay *time.Duration) {

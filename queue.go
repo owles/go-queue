@@ -34,3 +34,25 @@ func (receiver *Queue) Job(job contract.Job, args []contract.Arg) contract.Task 
 		args,
 	)
 }
+
+func (receiver *Queue) Worker(args ...contract.Args) contract.Worker {
+	driver := receiver.driver
+
+	if len(args) == 0 {
+		return NewWorker(
+			driver,
+			"default",
+			1,
+		)
+	}
+
+	if args[0].Driver != nil {
+		driver = args[0].Driver
+	}
+
+	return NewWorker(
+		driver,
+		args[0].Queue,
+		args[0].Concurrent,
+	)
+}

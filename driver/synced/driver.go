@@ -26,6 +26,9 @@ func (receiver *Driver) Size(queue string) int {
 func (receiver *Driver) Push(payload contract.Payload, queue string) error {
 	receiver.mutex.Lock()
 	defer receiver.mutex.Unlock()
+
+	receiver.queue[queue] = append(receiver.queue[queue], payload)
+
 	return nil
 }
 

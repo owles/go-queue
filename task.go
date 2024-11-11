@@ -19,7 +19,7 @@ func NewTask(driver contract.Driver, job contract.Job, args []contract.Arg) *Tas
 	return &Task{
 		driver: driver,
 
-		queue: "",
+		queue: "default",
 		delay: nil,
 
 		job:  job,
